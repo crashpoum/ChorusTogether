@@ -23,3 +23,16 @@ npm run dev
 ```
 
 The app is served at `http://127.0.0.1:8080`.
+
+## Deploy with Docker
+
+Rooms are kept in the app process. One container is enough. Restarting it clears rooms that were in progress.
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080`.
+
+The image listens on port 8080 inside the container. Change the left side of `ports` in `docker-compose.yml` if 8080 is already taken.
+

@@ -1,0 +1,11 @@
+node_modules
+.output
+.vercel
+.git
+screenshots
+attachments
+artifacts
+.grok/skills
+.grok/references
+.grok/preview.log
+*.log
