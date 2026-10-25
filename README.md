@@ -36,3 +36,16 @@ Then open `http://localhost:8080`.
 
 The image listens on port 8080 inside the container. Change the left side of `ports` in `docker-compose.yml` if 8080 is already taken.
 
+## Android hotspot
+
+The Android app makes one phone the room. No Tailscale and no home computer.
+
+1. Install `ChorusTogether.apk` (allow install from this source if the phone asks).
+2. Turn on that phone's hotspot.
+3. Open ChorusTogether. It shows an address like `http://192.168.43.1:8080`.
+4. Other phones join the hotspot and open that address in the browser. They do not need the app.
+5. On the host phone, tap **Host a room** and share the code.
+
+A song file works on the hotspot alone. A YouTube link still needs mobile data, because each phone plays YouTube itself. If the address looks like the phone's normal Wi-Fi address, turn the hotspot on and tap **Refresh address**.
+
+
