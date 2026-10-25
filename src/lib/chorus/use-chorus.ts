@@ -307,6 +307,41 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
     }
   }
 
+  function kickYouTube(player: YTPlayer) {
+    try {
+      player.unMute();
+      player.setVolume(Math.round(model.volume * 100));
+      player.playVideo();
+    } catch {
+      model.needsTap = true;
+      model.playing = false;
+      model.pendingPlay = false;
+      publish();
+      return;
+    }
+    window.setTimeout(() => {
+      if (model.dead || model.track?.source !== "youtube" || !model.pendingPlay) return;
+      let state = -1;
+      let at = 0;
+      try {
+        state = player.getPlayerState();
+        at = player.getCurrentTime() || 0;
+      } catch {
+        state = -1;
+      }
+      if ((state === 1 || state === 3) && at > 0.2) {
+        model.needsTap = false;
+        publish();
+        return;
+      }
+      model.playing = false;
+      model.pendingPlay = false;
+      model.needsTap = true;
+      emit(snapshot(false));
+      publish();
+    }, 1500);
+  }
+
   function finishYouTube() {
     model.playing = false;
     model.pendingPlay = false;
@@ -345,6 +380,7 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
     model.playing = true;
     model.pendingPlay = true;
     model.error = null;
+    model.skipEndUntil = performance.now() + 1600;
     void ensurePlayer(item.id);
     emit(snapshot(true, 0));
     publish();
@@ -353,12 +389,17 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
 
   async function ensurePlayer(videoId: string) {
     model.videoReady = videoId;
+    if (model.ytEl) model.ytEl.style.display = "block";
     try {
       await loadYouTubeApi();
     } catch {
       model.error = "YouTube didn't load. Check the connection and try the link again.";
       publish();
       return;
+    }
+    if (model.dead) return;
+    if (!model.ytEl) {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     }
     if (model.dead || !model.ytEl) return;
     if (model.yt && model.ytReady) {
@@ -367,8 +408,7 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
         if (model.pendingPlay && model.role === "host") {
           model.yt.loadVideoById(videoId);
           model.yt.setPlaybackQuality("small");
-          model.yt.unMute();
-          model.yt.setVolume(Math.round(model.volume * 100));
+          kickYouTube(model.yt);
         } else {
           model.yt.cueVideoById(videoId);
           model.yt.setPlaybackQuality("small");
@@ -394,10 +434,13 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
           }
           if (model.role === "host" && model.pendingPlay) {
             try {
-              player.unMute();
-              player.playVideo();
+              const wanted = model.videoReady;
+              if (wanted && wanted !== videoId) player.loadVideoById(wanted);
+              kickYouTube(player);
             } catch {
               model.needsTap = true;
+              model.playing = false;
+              model.pendingPlay = false;
             }
           } else if (hasGesture()) {
             primePlayer(player);
@@ -405,14 +448,29 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
           publish();
         },
         onState: (state) => {
-          if (model.role !== "host" || state !== 0 || model.track?.source !== "youtube") return;
+          if (model.role !== "host" || model.track?.source !== "youtube") return;
+          if (state === 1) {
+            model.playing = true;
+            model.pendingPlay = true;
+            model.needsTap = false;
+            publish();
+            return;
+          }
+          if (state !== 0) return;
+          try {
+            const at = model.yt?.getCurrentTime() ?? 0;
+            const length = model.yt?.getDuration() ?? 0;
+            if (length > 1 && at < 1) return;
+          } catch {
+            return;
+          }
           const wait = model.skipEndUntil - performance.now();
           if (wait > 0) {
             window.setTimeout(() => {
               if (model.dead || model.track?.source !== "youtube") return;
               let ended = false;
               try {
-                ended = model.yt?.getPlayerState() === 0;
+                ended = model.yt?.getPlayerState() === 0 && (model.yt.getCurrentTime() ?? 0) > 1;
               } catch {
                 ended = false;
               }
@@ -424,7 +482,8 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
           if (!advanceQueue()) finishYouTube();
         },
         onError: () => {
-          if (model.role === "host" && advanceQueue()) return;
+          if (performance.now() < model.skipEndUntil) return;
+          if (model.role === "host" && model.queue && advanceQueue()) return;
           model.playing = false;
           model.pendingPlay = false;
           model.error = "YouTube won't play that one here. Try another link, or a file from this phone.";
@@ -791,12 +850,11 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
       emit(snapshot(false));
       publish();
     };
-    const el = document.createElement("div");
-    el.setAttribute("aria-hidden", "true");
-    el.style.cssText =
-      "position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.02;overflow:hidden;pointer-events:none;z-index:-1;";
-    document.body.appendChild(el);
-    model.ytEl = el;
+    const slot = document.createElement("div");
+    slot.style.cssText =
+      "position:fixed;left:1rem;right:1rem;top:4.5rem;height:11rem;z-index:20;display:none;overflow:hidden;border-radius:1rem;background:#000;opacity:1;";
+    document.body.appendChild(slot);
+    model.ytEl = slot;
 
     const p2p = new P2PRoom({
       room: opts.room,
@@ -870,7 +928,8 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
       }
       model.yt = null;
       model.ytReady = false;
-      el.remove();
+      slot.remove();
+      model.ytEl = null;
       if (model.blobUrl) URL.revokeObjectURL(model.blobUrl);
       model.blobUrl = null;
     };
@@ -891,6 +950,7 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
     if (!duration) duration = await readDuration(buffer, partial.mime);
     const track: TrackMeta = { ...partial, duration, hash, id: hash, bytes: buffer.byteLength };
     model.queue = null;
+    if (model.ytEl) model.ytEl.style.display = "none";
     model.jobs.clear();
     model.have.add(track.id);
     await attachLocal(buffer, track, true);
@@ -1057,7 +1117,7 @@ export function useChorus(opts: { role: "host" | "guest"; room: string; name: st
       model.error = null;
       const buffer = makeDemoWav();
       await loadBuffer(buffer, {
-        name: "Chorus demo",
+        name: "ChorusTogether demo",
         mime: "audio/wav",
         duration: 8,
         source: "demo",

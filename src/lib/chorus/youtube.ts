@@ -170,10 +170,11 @@ export function createYouTubePlayer(
 ): YTPlayer {
   if (!window.YT?.Player) throw new Error("YouTube isn't ready");
   return new window.YT.Player(element, {
-    width: "160",
-    height: "90",
+    width: "100%",
+    height: "100%",
     videoId,
     playerVars: {
+      autoplay: 1,
       playsinline: 1,
       controls: 0,
       disablekb: 1,

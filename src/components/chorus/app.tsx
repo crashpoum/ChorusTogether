@@ -108,7 +108,7 @@ export function ChorusApp({
         <span className="grid size-11 place-items-center rounded-full bg-brass text-bg">
           <AudioLines className="size-5" aria-hidden="true" />
         </span>
-        <h1 className="font-display text-5xl leading-none font-medium italic text-fg">Chorus</h1>
+        <h1 className="font-display text-4xl leading-none font-medium italic text-fg">ChorusTogether</h1>
       </div>
       <p className="mt-4 max-w-xs text-lg leading-snug text-fg/80">One song, every phone in the room.</p>
 
@@ -210,10 +210,10 @@ function Room({ session, onLeave, onRetry }: { session: Session; onLeave: () => 
   async function share() {
     const url = new URL(window.location.href);
     url.searchParams.set("room", session.room);
-    const text = `Join my Chorus room ${session.room}`;
+    const text = `Join my ChorusTogether room ${session.room}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Chorus", text, url: url.toString() });
+        await navigator.share({ title: "ChorusTogether", text, url: url.toString() });
         return;
       }
     } catch {
@@ -250,7 +250,7 @@ function Room({ session, onLeave, onRetry }: { session: Session; onLeave: () => 
         </div>
       </header>
 
-      <section className="mt-6 flex flex-col items-center" aria-live="polite">
+      <section className={view.track?.source === "youtube" ? "mt-48 flex flex-col items-center" : "mt-6 flex flex-col items-center"} aria-live="polite">
         <Vinyl track={view.track} playing={view.playing && !view.hostGone} />
         <h1 className="mt-5 max-w-full truncate text-center font-display text-3xl text-fg">
           {view.track?.name ?? (session.role === "host" ? "Pick a song" : "Waiting for the host")}
@@ -423,7 +423,7 @@ function Room({ session, onLeave, onRetry }: { session: Session; onLeave: () => 
                 Play this link
               </button>
               <p className="mt-3 text-sm leading-relaxed text-muted">
-                A video or a playlist both work. The picture stays hidden. YouTube still plays on each phone, locked to you, and a playlist moves on by itself. For true audio-only, and tighter timing on a hotspot, use a file instead.
+                A video or a playlist both work. The picture stays on screen because YouTube will not play sound from a hidden player. Everyone stays locked to you, and a playlist moves on by itself.
               </p>
             </form>
           )}
@@ -519,7 +519,7 @@ function SpeakerRow({ speaker }: { speaker: Speaker }) {
 function Vinyl({ track, playing }: { track: ChorusView["track"]; playing: boolean }) {
   const [artOk, setArtOk] = useState(true);
   useEffect(() => setArtOk(true), [track?.thumb]);
-  const letter = (track?.name ?? "Chorus").trim().charAt(0).toUpperCase() || "C";
+  const letter = (track?.name ?? "ChorusTogether").trim().charAt(0).toUpperCase() || "C";
   return (
     <div className="relative">
       <div className={playing ? "vinyl is-on" : "vinyl"}>
